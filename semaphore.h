@@ -6,10 +6,10 @@
 #include <string.h>
 #include <unistd.h>
 
-// Struktura pomocnicza do operacji na semaforze
+// Basic struct
 struct sembuf sem_operation;
 
-// Inicjalizacja semafora
+// Init semaphore
 int initialize_semaphore(int key, int num_sems) {
     int semaphore_id = semget(key, num_sems, IPC_CREAT | 0666);
     if (semaphore_id == -1) {
@@ -20,7 +20,7 @@ int initialize_semaphore(int key, int num_sems) {
     return semaphore_id;
 }
 
-// Ustawienie wartości semafora
+// Set value in semaphore
 void set_semaphore_value(int semaphore_id, int sem_num, int value) {
     union semun {
         int val;
@@ -35,7 +35,7 @@ void set_semaphore_value(int semaphore_id, int sem_num, int value) {
     }
 }
 
-// Pobranie wartości semafora
+// Get value from semaphore
 int get_semaphore_value(int semaphore_id, int sem_num) {
     int value = semctl(semaphore_id, sem_num, GETVAL);
     if (value == -1) {
@@ -46,7 +46,7 @@ int get_semaphore_value(int semaphore_id, int sem_num) {
     return value;
 }
 
-// Operacja P (czekanie) na semaforze
+// Operation P (waiting) on semaphore
 void semaphore_wait(int semaphore_id, int sem_num) {
     sem_operation.sem_num = sem_num;
     sem_operation.sem_op = -1;
@@ -58,7 +58,7 @@ void semaphore_wait(int semaphore_id, int sem_num) {
     }
 }
 
-// Operacja V (sygnalizacja) na semaforze
+// Operation V (signalize) on semaphore
 void semaphore_signal(int semaphore_id, int sem_num) {
     sem_operation.sem_num = sem_num;
     sem_operation.sem_op = 1;
@@ -70,7 +70,6 @@ void semaphore_signal(int semaphore_id, int sem_num) {
     }
 }
 
-// Usunięcie semafora
 void remove_semaphore(int semaphore_id) {
     if (semctl(semaphore_id, 0, IPC_RMID) == -1) {
         perror("semctl");

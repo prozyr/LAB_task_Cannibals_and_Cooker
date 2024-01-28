@@ -5,6 +5,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
+#include <assert.h>
 #include "semaphore.h"
 #include <time.h>
 
@@ -21,8 +22,13 @@ void cooker(int *portions, int no_refill) {
 
 void cannibal(int *portions) {
     /* EAT PORTION */
-    printf("Cannibal eating portion no. %d\n", *portions);
-    (*portions)--;
+    if (*portions > 0) {
+        printf("Cannibal eating portion no. %d\n", *portions);
+        (*portions)--;
+    } else {
+        printf("There is nothing left\n");
+    }
+    
 }
 
 int main() {
@@ -31,7 +37,7 @@ int main() {
     // PARAMETERS
     int no_cannibals = 10;
     int no_refill = 7;
-    int no_portion = 10;
+    int no_portion = 7;
     //
     int pid = 0, status;
 
@@ -44,9 +50,9 @@ int main() {
     }
 
     // Connect share memory
-    int *porcja = (int*) shmat(shmid, NULL, 0);
-    *porcja = 0;
-    if (porcja == (int*)-1) {
+    int *portion = (int*) shmat(shmid, NULL, 0);
+    *portion = 0;
+    if (portion == (int*)-1) {
         perror("shmat");
         exit(EXIT_FAILURE);
     }
@@ -79,54 +85,59 @@ int main() {
 
         if (pid == 0) {
             for (int i = 0; 1 == 1; i++) {
-                if (*porcja <= 0) {
-                    /* CALL COOKER */
-                    if (get_semaphore_value(semaphore_id, D2C) != 1) {
-                        printf("CALL COOKER\n");
-                        set_semaphore_value(semaphore_id, D2C, 1);
-                    }
+                if (*portion <= -1) exit(0);
+                semaphore_wait(semaphore_id, A2B);
+                semaphore_signal(semaphore_id, B2A);
+
+                cannibal(portion);
+
+                if (*portion <= 0) {
+                    if (*portion <= -1) exit(0);
+                    semaphore_signal(semaphore_id, D2C);
                     semaphore_wait(semaphore_id, C2D);
-                } else {
-                    semaphore_wait(semaphore_id, A2B);
-                    semaphore_signal(semaphore_id, B2A);
-
-                    cannibal(porcja);
-
-                    semaphore_wait(semaphore_id, B2A);
-                    semaphore_signal(semaphore_id, A2B);
+                    if (*portion <= -1) exit(0);
                 }
+                if (*portion <= -1) exit(0);
+                semaphore_wait(semaphore_id, B2A);
+                semaphore_signal(semaphore_id, A2B);
 
-                usleep(100000*(rand() % 10) + 1);  // Add a 100ms delay
+                usleep(100000*(rand() % 100) + 1);  // Add delay to see it working
             }
-
             exit(0);
         }
     }
 
+    /* COOKER LOOP */
     for (int refill = 0; refill < no_refill; refill++) {
         semaphore_wait(semaphore_id, D2C);
         if (refill == no_refill - 1) {
-            no_refill = -1;
+            no_portion = -1;
         }
-        cooker(porcja, no_portion);
-        set_semaphore_value(semaphore_id, D2C, 0);
+        cooker(portion, no_portion);
+        // set_semaphore_value(semaphore_id, D2C, 0);
         semaphore_signal(semaphore_id, C2D);
-        usleep(10000*(rand() % 10) + 1);  // Add a 100ms delay
+        // usleep(10000*(rand() % 10) + 1);  // Add a 100ms delay
     }
-
-    // Unplug shared memory
-    shmdt(porcja);
-
-    // Delete shared memory
-    shmctl(shmid, IPC_RMID, NULL);
 
     /* COOKER ENDING PARTY, THERE IS NO LEFT FROM MISSIONARY */
     for (int i = 0; i < no_cannibals; i++) {
-        printf("Waiting for cannibals to leave %d/%d \n", (no_cannibals-i), no_cannibals);
+        if (i == no_cannibals-1 ) { 
+            // Trigger last Cannibal
+            semaphore_signal(semaphore_id, A2B);
+            semaphore_signal(semaphore_id, C2D);
+        }
+        printf("Waiting for cannibals to leave %d/%d \n", (1+i), no_cannibals);
         pid = wait(&status);
         printf("PID = %d, status = %d\n", pid, status);
     }
     printf("END PARTY\n");
+
+    // Unplug shared memory
+    assert (shmdt(portion) != -1);
+    // Delete shared memory
+    assert (shmctl(shmid, IPC_RMID, NULL) != -1);
+    // Delete semaphore
+    assert (semctl (semaphore_id, 0, IPC_RMID, 0) != -1);
 
     return 0;
 }

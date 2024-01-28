@@ -2,7 +2,7 @@ CCOPT=-DLINUX
 CC=gcc
 #CC=/opt/gnu/bin/gcc
 
-all: msga msgb sema semb forki
+all: msga msgb sema semb forki cannibals
 
 clean: 
 	rm msg[ab] sem[ab] forki
@@ -25,4 +25,7 @@ semb: semb.c params.h
 
 forki: forki.c
 	$(CC) $(CCOPT) forki.c -o forki
+
+cannibal: cannibals.c
+	$(CC) $(CCOPT) cannibals.c -o cannibals
 

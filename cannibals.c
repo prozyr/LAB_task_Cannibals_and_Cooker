@@ -28,11 +28,14 @@ void cannibal(int *portions) {
 int main() {
 
     srand(time(NULL));
-
+    // PARAMETERS
     int no_cannibals = 10;
+    int no_refill = 7;
+    int no_portion = 10;
+    //
     int pid = 0, status;
 
-    // Utwórz obszar pamięci współdzielonej
+    // Share memory
     key_t key = ftok("shmfile", 'R');
     int shmid = shmget(key, sizeof(int), 0666|IPC_CREAT);
     if (shmid == -1) {
@@ -40,7 +43,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Przyłącz pamięć współdzieloną do procesu
+    // Connect share memory
     int *porcja = (int*) shmat(shmid, NULL, 0);
     *porcja = 0;
     if (porcja == (int*)-1) {
@@ -55,10 +58,10 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Utwórz semafor
+    // Init id semaphore
     int semaphore_id = initialize_semaphore(sem_key, 4);
 
-    // Inicjalizuj semafory
+    // Init semaphores
     set_semaphore_value(semaphore_id, A2B, 1);
     set_semaphore_value(semaphore_id, B2A, 0);
     set_semaphore_value(semaphore_id, C2D, 0);
@@ -96,28 +99,25 @@ int main() {
                 usleep(100000*(rand() % 10) + 1);  // Add a 100ms delay
             }
 
-            // Operacje w sekcji krytycznej dla procesu A
             exit(0);
         }
     }
 
-
-    int no_refill = 7;
     for (int refill = 0; refill < no_refill; refill++) {
         semaphore_wait(semaphore_id, D2C);
         if (refill == no_refill - 1) {
             no_refill = -1;
         }
-        cooker(porcja, no_refill);
+        cooker(porcja, no_portion);
         set_semaphore_value(semaphore_id, D2C, 0);
         semaphore_signal(semaphore_id, C2D);
         usleep(10000*(rand() % 10) + 1);  // Add a 100ms delay
     }
 
-    // Odłącz pamięć współdzieloną
+    // Unplug shared memory
     shmdt(porcja);
 
-    // Usuń obszar pamięci współdzielonej
+    // Delete shared memory
     shmctl(shmid, IPC_RMID, NULL);
 
     /* COOKER ENDING PARTY, THERE IS NO LEFT FROM MISSIONARY */
